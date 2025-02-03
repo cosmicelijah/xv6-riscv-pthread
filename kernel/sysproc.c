@@ -91,3 +91,38 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_pthread_create(void) 
+{
+  uint64 thread;
+  uint64 start;
+  uint64 arg;
+  
+  argaddr(0, &thread);
+  argaddr(1, &start);
+  argaddr(2, &arg);
+  return pthread_create((int *)thread, (void*(*)(void*))start, (void*)arg);
+}
+
+uint64
+sys_pthread_join(void)
+{
+  uint64 thread;
+  uint64 retval;
+
+  argaddr(0, &thread);
+  argaddr(1, &retval);
+
+  return pthread_join((int *)thread, (void **)retval);
+}
+
+void
+sys_pthread_cancel(void)
+{
+  uint64 thread;
+
+  argaddr(0, &thread);
+
+  pthread_cancel((int *)thread);
+}

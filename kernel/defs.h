@@ -108,9 +108,9 @@ int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 
 // thread.c
-int				pthread_create(int*thread, void*(*start)(void*), void*arg);
-int				pthread_join(int*thread, void**retval);
-void			pthread_cancel(int*thread);
+int				pthread_create(int tid, void*(*start)(void*), void*arg);
+int				pthread_join(int tid, void**retval);
+void			pthread_cancel(int tid);
 
 
 // swtch.S

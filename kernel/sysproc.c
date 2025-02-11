@@ -95,34 +95,34 @@ sys_uptime(void)
 uint64
 sys_pthread_create(void) 
 {
-  uint64 thread;
+  int tid;
   uint64 start;
   uint64 arg;
   
-  argaddr(0, &thread);
+  argint(0, &tid);
   argaddr(1, &start);
   argaddr(2, &arg);
-  return pthread_create((int *)thread, (void*(*)(void*))start, (void*)arg);
+  return pthread_create(tid, (void*(*)(void*))start, (void*)arg);
 }
 
 uint64
 sys_pthread_join(void)
 {
-  uint64 thread;
+  int tid;
   uint64 retval;
 
-  argaddr(0, &thread);
+  argint(0, &tid);
   argaddr(1, &retval);
 
-  return pthread_join((int *)thread, (void **)retval);
+  return pthread_join(tid, (void **)retval);
 }
 
 void
 sys_pthread_cancel(void)
 {
-  uint64 thread;
+  int tid;
 
-  argaddr(0, &thread);
+  argint(0, &tid);
 
-  pthread_cancel((int *)thread);
+  pthread_cancel(tid);
 }

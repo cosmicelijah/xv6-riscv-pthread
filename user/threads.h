@@ -3,13 +3,16 @@
 typedef int thread_t;
 
 int thread_create(thread_t *thread, void *(*start)(void *), void *arg) {
-  return pthread_create((int *)thread, start, arg);
+  int tid = *(int *)thread;
+  return pthread_create(tid, start, arg);
 }
 
 int thread_join(thread_t *thread, void **retval) {
-  return pthread_join((int *)thread, retval);
+  int tid = *(int *)thread;
+  return pthread_join(tid, retval);
 }
 
 void thread_cancel(thread_t *thread) {
-  pthread_cancel((int *)thread);
+  int tid = *(int *)thread;
+  pthread_cancel(tid);
 }

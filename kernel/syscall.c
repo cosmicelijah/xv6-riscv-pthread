@@ -104,6 +104,7 @@ extern uint64 sys_close(void);
 extern uint64 sys_pthread_create(void);
 extern uint64 sys_pthread_join(void);
 extern uint64 sys_pthread_cancel(void);
+extern uint64 sys_pthread_exit(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -132,6 +133,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_pthread_create]	sys_pthread_create,
 [SYS_pthread_join]   	sys_pthread_join,
 [SYS_pthread_cancel]	sys_pthread_cancel,
+[SYS_pthread_exit]		sys_pthread_exit,
 };
 
 void

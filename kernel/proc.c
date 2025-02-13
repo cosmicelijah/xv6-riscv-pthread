@@ -801,7 +801,7 @@ void pthread_cancel(int tid) {
 }
 
 //pthread stuff made by josiah with elijah:
-int pthread_create(int tid, void*(*start)(void*), void*arg) {
+int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
   printf("Printed from pthread_create syscall with args:\n");
   printf("\tthread: %d\n", tid);
   printf("\tstart: %p\n", start);
@@ -831,6 +831,7 @@ int pthread_create(int tid, void*(*start)(void*), void*arg) {
   // copy saved user registers and copy epc to start at start function
   *(t->trapframe) = *(p->trapframe);
   t->trapframe->epc = (uint64)start;
+  t->trapframe->ra = (uint64)exit;
   
 
   // Set args in trapframe to whats given.
@@ -861,37 +862,72 @@ int pthread_create(int tid, void*(*start)(void*), void*arg) {
   return 0;
 }
 
+// Wait for a child process to exit and return its pid.
+// Return -1 if this process has no children.
+int
+wait_thread(int tid, uint64 addr)
+{
+  struct proc *t;
+  int success;
+  struct proc *p = myproc();
+
+  acquire(&wait_lock);
+
+  for(;;){
+    // Scan through table looking for exited children.
+    success = -1;
+    for(t = proc; t < &proc[NPROC]; t++){
+      if(t->parent == p){
+        // make sure the child isn't still in exit() or swtch().
+        acquire(&t->lock);
+
+		if (tid == t->tid) {
+		  success = 0;
+          if(t->state == ZOMBIE){
+            // Found one.
+            if(addr != 0 && copyout(p->pagetable, addr, (char *)&t->xstate,
+                                    sizeof(t->xstate)) < 0) {
+              release(&t->lock);
+              release(&wait_lock);
+              return -1;
+            }
+            freeproc(t);
+            release(&t->lock);
+            release(&wait_lock);
+            return tid;
+          }
+		}
+
+        release(&t->lock);
+      }
+    }
+
+    // No point waiting if we don't have any threads.
+    if(success || killed(p)){
+      release(&wait_lock);
+      return success;
+    }
+    
+    // Wait for a thread to exit.
+    sleep(p, &wait_lock);  //DOC: wait-sleep
+    
+    return success;
+  }
+}
+
 int pthread_join(int tid, void**retval) {
+  if (wait_thread(tid, (uint64)retval)) {
+  	return -1;
+  }
+    
+  return 0;
+}
+
+void pthread_exit(void) {
+  struct proc *t = myproc();
   
-    // struct proc *p = myproc();
-    // struct proc *t;
+  printf("Murdered TID: %d in PID %d in cold blood!\n", t->tid, t->pid);
 
-    // acquire(&wait_lock);
-
-    // for (;;) {
-    //     int found = 0;
-    //     for (t = proc; t < &proc[NPROC]; t++) {
-    //         if (t->pid == *thread && t->parent == p) {
-    //             found = 1;
-
-    //             acquire(&t->lock);
-    //             if (t->state == ZOMBIE) {
-    //                 freeproc(t);
-    //                 release(&t->lock);
-    //                 release(&wait_lock);
-    //                 return *thread;
-    //             }
-    //             release(&t->lock);
-    //         }
-    //     }
-
-    //     if (!found) {
-    //         release(&wait_lock);
-    //         return -1;
-    //     }
-
-    //     sleep(p, &wait_lock);
-    // }
-    return 0;
+  exit(0);
 }
 //end of josiah's stuff with elijah

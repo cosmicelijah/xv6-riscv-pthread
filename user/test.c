@@ -4,27 +4,38 @@
 #include "user/threads.h"
 
 // Do nothing, strictly for testing purposes
-void *start(void *arg);
+void *start_fn(void *arg) {
+  char *tid = *(char **)arg;
+
+  printf("Thread %s: Hello from start!\n", tid);
+
+  return 0;
+}
 
 int main(int argc, char **argv) {
-  thread_t threads[3]; 
+  thread_t threads[4] = {0, 1, 2, 3}; 
+  char *tid[4] = {"a", "b", "c", "d"};
+  // int retvals[4];
 
   printf("Test for xv6\n");
   printf("\n--------= Test for thread_create API call =--------\n\n");
 
-  int arg = 10;
+  for (int i = 0; i < 4; i++) {
+	thread_create(&threads[i], &start_fn, &tid[i]);
+  }
 
-  thread_create(&threads[0], &start, &arg);
-
-  printf("\n--------= Test for thread_join API call =--------\n\n");
+  // printf("\n--------= Test for thread_join API call =--------\n\n");
 
   int retval;
 
-  thread_join(&threads[1], (void **)(&retval));
+  for (int i = 0; i < 4; i++) {
+    
+    thread_join(&threads[i], (void **)(&retval));
+  }
+  
+  // printf("\n--------= Test for thread_cancel API call =--------\n\n");
 
-  printf("\n--------= Test for thread_cancel API call =--------\n\n");
+  // thread_cancel(&threads[2]);
 
-  thread_cancel(&threads[2]);
-
-  return 0;
+  exit(0);
 }

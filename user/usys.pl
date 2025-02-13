@@ -39,3 +39,4 @@ entry("uptime");
 entry("pthread_create");
 entry("pthread_join");
 entry("pthread_cancel");
+entry("pthread_exit");

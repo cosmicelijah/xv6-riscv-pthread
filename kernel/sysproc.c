@@ -98,11 +98,13 @@ sys_pthread_create(void)
   int tid;
   uint64 start;
   uint64 arg;
+  uint64 exit;
   
   argint(0, &tid);
   argaddr(1, &start);
   argaddr(2, &arg);
-  return pthread_create(tid, (void*(*)(void*))start, (void*)arg);
+  argaddr(3, &exit);
+  return pthread_create(tid, (void*(*)(void*))start, (void*)arg, (void(*)(void))exit);
 }
 
 uint64
@@ -125,4 +127,10 @@ sys_pthread_cancel(void)
   argint(0, &tid);
 
   pthread_cancel(tid);
+}
+
+void
+sys_pthread_exit(void)
+{
+  pthread_exit();
 }

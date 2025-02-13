@@ -110,11 +110,4 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-
-
-  
 };
-
-// Moved from proc.c to be used in thread.c as well
-// extern struct proc proc[NPROC];
-// extern struct spinlock wait_lock;

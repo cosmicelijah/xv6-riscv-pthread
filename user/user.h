@@ -22,9 +22,10 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int pthread_create(int, void*(*)(void*), void*);
+int pthread_create(int, void*(*)(void*), void*, void(*)(void));
 int pthread_join(int, void**);
 void pthread_cancel(int);
+void pthread_exit(void);
 
 // ulib.c
 int stat(const char*, struct stat*);

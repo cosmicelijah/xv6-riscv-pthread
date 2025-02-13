@@ -23,3 +23,4 @@
 #define SYS_pthread_create  22
 #define SYS_pthread_join 23
 #define SYS_pthread_cancel 24
+#define SYS_pthread_exit 25

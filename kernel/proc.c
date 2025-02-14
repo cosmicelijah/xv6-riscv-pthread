@@ -802,10 +802,10 @@ void pthread_cancel(int tid) {
 
 //pthread stuff made by josiah with elijah:
 int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
-  printf("Printed from pthread_create syscall with args:\n");
-  printf("\tthread: %d\n", tid);
-  printf("\tstart: %p\n", start);
-  printf("\targ: %p\n", arg);
+  // printf("Printed from pthread_create syscall with args:\n");
+  // printf("\tthread: %d\n", tid);
+  // printf("\tstart: %p\n", start);
+  // printf("\targ: %p\n", arg);
 
   int i;
   struct proc *t;
@@ -924,9 +924,9 @@ int pthread_join(int tid, void**retval) {
 }
 
 void pthread_exit(void) {
-  struct proc *t = myproc();
+  // struct proc *t = myproc();
   
-  printf("Murdered TID: %d in PID %d in cold blood!\n", t->tid, t->pid);
+  // printf("Murdered TID: %d in PID %d in cold blood!\n", t->tid, t->pid);
 
   exit(0);
 }

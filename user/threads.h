@@ -3,7 +3,7 @@
 typedef int thread_t;
 
 void thread_exit() {
-  printf("Thread exiting!/n");
+  // printf("Thread exiting!\n");
   pthread_exit();
 }
 

@@ -1,14 +1,30 @@
 #include "kernel/types.h"
 
 typedef int thread_t;
+#define NTHREADS 8
+
+thread_t threads[NTHREADS] = {0};
 
 void thread_exit() {
-  // printf("Thread exiting!\n");
   pthread_exit();
 }
 
 int thread_create(thread_t *thread, void *(*start)(void *), void *arg) {
-  int tid = *(int *)thread;
+  int tid = -1;
+  
+  for (int i = 0; i < NTHREADS; i++) {
+  	if (threads[i] == 0) {
+  	  tid = i + 1;
+  	  threads[i] = 1;
+  	  break;
+  	}
+  }
+
+  // No thread slots left
+  if (tid == -1) return tid;
+
+  *thread = tid;
+  
   return pthread_create(tid, start, arg, thread_exit);
 }
 

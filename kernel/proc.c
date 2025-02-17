@@ -871,16 +871,20 @@ wait_thread(int tid, uint64 addr)
   int success;
   struct proc *p = myproc();
 
+  if (p->tid == 0) {
+   	// Main thread, don't join
+   	return -1;
+  }
+
   acquire(&wait_lock);
 
   for(;;){
     // Scan through table looking for exited children.
     success = -1;
     for(t = proc; t < &proc[NPROC]; t++){
-      if(t->parent == p){
+      acquire(&t->lock);
+      if(t->pid == p->pid){
         // make sure the child isn't still in exit() or swtch().
-        acquire(&t->lock);
-
 		if (tid == t->tid) {
 		  success = 0;
           if(t->state == ZOMBIE){
@@ -923,11 +927,59 @@ int pthread_join(int tid, void**retval) {
   return 0;
 }
 
+void
+exit_thread(int status)
+{
+  struct proc *p = myproc();
+
+  if(p == initproc)
+    panic("init exiting");
+
+  // Close all open files.
+  for(int fd = 0; fd < NOFILE; fd++){
+    if(p->ofile[fd]){
+      struct file *f = p->ofile[fd];
+      fileclose(f);
+      p->ofile[fd] = 0;
+    }
+  }
+
+  begin_op();
+  iput(p->cwd);
+  end_op();
+  p->cwd = 0;
+
+  acquire(&wait_lock);
+
+  // Give any children to init.
+  // reparent(p);
+
+  // Parent might be sleeping in wait().
+  struct proc* pp;
+  for (pp = proc; pp < &proc[NPROC]; pp++) {
+  	if (pp->pid == p->pid && pp->tid == 0) break;
+  }
+  
+  wakeup(pp);
+  
+  acquire(&p->lock);
+
+  p->xstate = status;
+  p->state = ZOMBIE;
+
+  release(&wait_lock);
+
+  // Jump into the scheduler, never to return.
+  sched();
+  panic("zombie exit");
+}
+
 void pthread_exit(void) {
   // struct proc *t = myproc();
   
   // printf("Murdered TID: %d in PID %d in cold blood!\n", t->tid, t->pid);
 
-  exit(0);
+  // TODO: Make exit_thread and remove reparenting
+  exit_thread(0);
 }
 //end of josiah's stuff with elijah

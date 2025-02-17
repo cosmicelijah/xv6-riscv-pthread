@@ -15,6 +15,8 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
 
+// extern void kaddref(void*);
+
 // Make a direct-map page table for the kernel.
 pagetable_t
 kvmmake(void)
@@ -337,6 +339,40 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
  err:
   uvmunmap(new, 0, i / PGSIZE, 1);
   return -1;
+}
+
+// Given a parent process's page table, copy
+// its memory into a child's page table.
+// Copies both the page table and the
+// physical memory.
+// returns 0 on success, -1 on failure.
+// frees any allocated pages on failure.
+int
+uvmthreadcopy(pagetable_t process, pagetable_t thread, uint64 sz)
+{
+  pte_t *pte;
+  uint64 pa, i;
+  uint flags;
+
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walk(process, i, 0)) == 0)
+      panic("uvmcopy: pte should exist");
+    if((*pte & PTE_V) == 0)
+      panic("uvmcopy: page not present");
+    if ((*pte & PTE_W)) { // Page was originally writeable
+      // printf("PTE: %p\nPTE & ~(PTE_W): %p\n(PTE & ~(PTE_W)) | PTE_RSW: %p\n", *pte, *pte & ~(PTE_W), (*pte & ~(PTE_W)) | PTE_RSW);
+      *pte = (*pte & ~(PTE_W)) | PTE_RSW;
+    } // Page was NOT originally writeable
+    pa = PTE2PA(*pte);
+    flags = PTE_FLAGS(*pte);
+
+    kaddref((void *)pa);
+    
+    if(mappages(thread, i, PGSIZE, pa, flags) != 0){
+      panic("uvmcopy: what the fuck?");
+    }
+  }
+  return 0;
 }
 
 // mark a PTE invalid for user access.

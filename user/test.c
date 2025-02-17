@@ -3,7 +3,7 @@
 #include "user/user.h"
 #include "user/threads.h"
 
-#define NUM_THREADS 4
+static int NUM_THREADS = 1;
 
 // Do nothing, strictly for testing purposes
 void *start_fn(void *arg) {
@@ -19,33 +19,39 @@ void *start_fn(void *arg) {
 }
 
 int main(int argc, char **argv) {
-  thread_t threads[NUM_THREADS];
-  char *tid[9];
-  int retvals[9];
-
-
-  // Come back to this
-  for (int i = 0; i < NUM_THREADS; i++) {
-    char str[2];
-  	char c = 'a' + i;
-  	str[0] = c;
-  	str[1] = 0;
-  	tid[i] = str;
+  if (argc == 1) {
+  	NUM_THREADS = 1;
+  } else {
+  	NUM_THREADS = atoi(argv[1]);
   }
 
-  // printf("Test for xv6\n");
-  // printf("\n--------= Test for thread_create API call =--------\n\n");
+  // --------= Initialize necessary thread data =--------
 
-  for (int i = 0; i < 9; i++) {
+  thread_t threads[NUM_THREADS];
+  char *tid[NUM_THREADS];
+  int retvals[9];
+
+  for (int i = 0; i < NUM_THREADS; i++) {
+    char *str = malloc(sizeof(char) * 2);
+  	char c = 'a' + i;
+  	str[0] = c;
+    str[1] = 0;
+    tid[i] = str;
+  }
+
+  // --------= Test for thread_create API call =--------
+
+  for (int i = 0; i < NUM_THREADS; i++) {
     if (thread_create(&threads[i], &start_fn, &tid[i]) == -1) {
+      printf("Out of thread slots!\n");
       break;
     }
 	printf("Thread ID for %s given by API: %d\n", tid[i], threads[i]);
   }
 
-  // printf("\n--------= Test for thread_join API call =--------\n\n");
+  // --------= Test for thread_join API call =--------
  
-   for (int i = 0; i < 4; i++) {
+   for (int i = 0; i < NUM_THREADS; i++) {
      thread_join(&threads[i], (void **)(&retvals[i]));
    }
   

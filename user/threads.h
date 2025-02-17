@@ -1,39 +1,15 @@
-#include "kernel/types.h"
+#ifndef __THREADS_H
+#define __THREADS_H
 
 typedef int thread_t;
 #define NTHREADS 8
 
-thread_t threads[NTHREADS] = {0};
+void thread_exit();
 
-void thread_exit() {
-  pthread_exit();
-}
+int thread_create(thread_t *thread, void *(*start)(void *), void *arg);
 
-int thread_create(thread_t *thread, void *(*start)(void *), void *arg) {
-  int tid = -1;
-  
-  for (int i = 0; i < NTHREADS; i++) {
-  	if (threads[i] == 0) {
-  	  tid = i + 1;
-  	  threads[i] = 1;
-  	  break;
-  	}
-  }
+int thread_join(thread_t *thread, void **retval);
 
-  // No thread slots left
-  if (tid == -1) return tid;
+void thread_cancel(thread_t *thread);
 
-  *thread = tid;
-  
-  return pthread_create(tid, start, arg, thread_exit);
-}
-
-int thread_join(thread_t *thread, void **retval) {
-  int tid = *(int *)thread;
-  return pthread_join(tid, retval);
-}
-
-void thread_cancel(thread_t *thread) {
-  int tid = *(int *)thread;
-  pthread_cancel(tid);
-}
+#endif

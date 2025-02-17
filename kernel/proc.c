@@ -802,11 +802,6 @@ void pthread_cancel(int tid) {
 
 //pthread stuff made by josiah with elijah:
 int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
-  // printf("Printed from pthread_create syscall with args:\n");
-  // printf("\tthread: %d\n", tid);
-  // printf("\tstart: %p\n", start);
-  // printf("\targ: %p\n", arg);
-
   int i;
   struct proc *t;
   struct proc *p = myproc();
@@ -816,8 +811,8 @@ int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
     return -1;
   }
 
-  // Copy user memory from parent to child.
-  if(uvmcopy(p->pagetable, t->pagetable, p->sz) < 0){
+  // Copy user memory from parent to thread baby.
+  if(uvmthreadcopy(p->pagetable, t->pagetable, p->sz) < 0){
     freethread(t);
     release(&t->lock);
     return -1;
@@ -871,11 +866,6 @@ wait_thread(int tid, uint64 addr)
   int success;
   struct proc *p = myproc();
 
-  if (p->tid == 0) {
-   	// Main thread, don't join
-   	return -1;
-  }
-
   acquire(&wait_lock);
 
   for(;;){
@@ -884,6 +874,11 @@ wait_thread(int tid, uint64 addr)
     for(t = proc; t < &proc[NPROC]; t++){
       acquire(&t->lock);
       if(t->pid == p->pid){
+        if (t->tid == 0) {
+       	  // Main thread, don't join
+       	  release(&t->lock);
+       	  continue;
+      	}
         // make sure the child isn't still in exit() or swtch().
 		if (tid == t->tid) {
 		  success = 0;
@@ -901,21 +896,18 @@ wait_thread(int tid, uint64 addr)
             return tid;
           }
 		}
-
-        release(&t->lock);
       }
+      release(&t->lock);
     }
 
     // No point waiting if we don't have any threads.
     if(success || killed(p)){
       release(&wait_lock);
-      return success;
+      return -1;
     }
     
     // Wait for a thread to exit.
-    sleep(p, &wait_lock);  //DOC: wait-sleep
-    
-    return success;
+    sleep(p, &wait_lock);  //DOC: wait-sleep 
   }
 }
 

@@ -9,10 +9,14 @@
 #include "riscv.h"
 #include "defs.h"
 
+#define FRINDEX(pa) ((uint64)pa - KERNBASE) / PGSIZE;
+
 void freerange(void *pa_start, void *pa_end);
 
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
+
+static int refs[(PHYSTOP - KERNBASE) / PGSIZE];
 
 struct run {
   struct run *next;
@@ -51,12 +55,22 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
+  r = (struct run *)pa;
+  
+  // Decrement reference and check if refs == 0 before nuking
+  int fr = FRINDEX(pa);
+  acquire(&kmem.lock);
+  refs[fr]--;
+  release(&kmem.lock);
+  if (refs[fr] > 0) {
+  	return;
+  }
+  
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
 
-  r = (struct run*)pa;
-
   acquire(&kmem.lock);
+  
   r->next = kmem.freelist;
   kmem.freelist = r;
   release(&kmem.lock);
@@ -72,6 +86,18 @@ kalloc(void)
 
   acquire(&kmem.lock);
   r = kmem.freelist;
+
+  // Freshly allocd frame should only have one reference
+  int fr = FRINDEX(r);
+  if (fr < 0) {
+    //printf("alloc: %p %p\n", fr, r);
+    release(&kmem.lock);
+    return 0; // OoM
+  }
+  // printf("alloc: %p %p\n", fr, r);
+  refs[fr] = 1;
+
+  
   if(r)
     kmem.freelist = r->next;
   release(&kmem.lock);
@@ -79,4 +105,14 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+
+void kaddref(void *pa) {
+  if ((uint64)pa % PGSIZE != 0 || (char *)pa < end || (uint64)pa >= PHYSTOP)
+    panic("kaddref");
+
+  acquire(&kmem.lock);
+  int fr = FRINDEX((uint64)pa);
+  refs[fr]++;
+  release(&kmem.lock);
 }

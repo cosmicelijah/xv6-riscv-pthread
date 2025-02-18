@@ -5,6 +5,13 @@
 
 static int NUM_THREADS = 1;
 
+/*
+struct ret {
+  int retval;
+  char *tid;
+};
+*/
+
 // Do nothing, strictly for testing purposes
 void *start_fn(void *arg) {
   char *tid = *(char **)arg;
@@ -15,6 +22,26 @@ void *start_fn(void *arg) {
 
   printf("Thread %s exiting!\n", tid);
 
+  /*
+  struct ret *ret = malloc(sizeof(struct ret));
+
+  switch (tid[0]) {
+  	case 'a':
+  	  ret->retval = 0;
+  	case 'b':
+  	  ret->retval = 1;
+  	case 'c':
+  	  ret->retval = 2;
+  	case 'd':
+  	  ret->retval = -1;
+  	default:
+  	  ret->retval = 255;
+  }
+
+  ret->tid = tid;
+
+  return ret;
+  */
   return 0;
 }
 
@@ -29,7 +56,6 @@ int main(int argc, char **argv) {
 
   thread_t threads[NUM_THREADS];
   char *tid[NUM_THREADS];
-  int retvals[9];
 
   for (int i = 0; i < NUM_THREADS; i++) {
     char *str = malloc(sizeof(char) * 2);
@@ -52,8 +78,12 @@ int main(int argc, char **argv) {
   // --------= Test for thread_join API call =--------
  
    for (int i = 0; i < NUM_THREADS; i++) {
-     thread_join(&threads[i], (void **)(&retvals[i]));
+     struct ret* ret;
+     thread_join(&threads[i], (void **)(&ret));
+     //printf("Return value from thread %s: %d\n", ret->tid, ret->retval);
    }
+
+   printf("All finished! Everyone is joined.\n");
   
   // printf("\n--------= Test for thread_cancel API call =--------\n\n");
 

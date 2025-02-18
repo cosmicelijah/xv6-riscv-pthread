@@ -170,6 +170,7 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->is_thread = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -804,6 +805,7 @@ void pthread_cancel(int tid) {
 int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
   int i;
   struct proc *t;
+  struct proc *r;
   struct proc *p = myproc();
 
   // Allocate process.
@@ -811,13 +813,26 @@ int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
     return -1;
   }
 
-  // Copy user memory from parent to thread baby.
-  if(uvmthreadcopy(p->pagetable, t->pagetable, p->sz) < 0){
-    freethread(t);
-    release(&t->lock);
-    return -1;
-  }
+  // Copy user memory from process to thread baby.
+  // Failure result sin panic since no new memory is allocated here
+  uvmthreadcopy(p->pagetable, t->pagetable, p->sz);
   t->sz = p->sz;
+
+  // Allocate new stack for thread
+  void *new_stack = kalloc();
+  if (new_stack == 0) {
+  	freethread(t);
+  	release(&t->lock);
+  	return -1;
+  }
+
+  for (r = proc; r < &proc[NPROC]; r++) {
+    if (r->pid == p->pid) {
+      // Map new stack to all pagetables for each thread in the process (including main thread)
+      //mappages();
+    }
+  }
+  
   
   //set the threads pid and tid
   t->pid = p->pid;
@@ -825,6 +840,7 @@ int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
 
   // copy saved user registers and copy epc to start at start function
   *(t->trapframe) = *(p->trapframe);
+  t->trapframe->sp = (uint64)new_stack;
   t->trapframe->epc = (uint64)start;
   t->trapframe->ra = (uint64)exit;
   
@@ -874,8 +890,9 @@ wait_thread(int tid, uint64 addr)
     for(t = proc; t < &proc[NPROC]; t++){
       acquire(&t->lock);
       if(t->pid == p->pid){
-        if (t->tid == 0) {
-       	  // Main thread, don't join
+        if (t->is_thread == 0) {
+       	  // Not a thread, don't join
+       	  // Should only be the main thread/"parent" process that gets here
        	  release(&t->lock);
        	  continue;
       	}
@@ -943,9 +960,6 @@ exit_thread(int status)
 
   acquire(&wait_lock);
 
-  // Give any children to init.
-  // reparent(p);
-
   // Parent might be sleeping in wait().
   struct proc* pp;
   for (pp = proc; pp < &proc[NPROC]; pp++) {
@@ -967,11 +981,7 @@ exit_thread(int status)
 }
 
 void pthread_exit(void) {
-  // struct proc *t = myproc();
-  
-  // printf("Murdered TID: %d in PID %d in cold blood!\n", t->tid, t->pid);
-
-  // TODO: Make exit_thread and remove reparenting
+  // TODO: Make pthread_exit passthrough status
   exit_thread(0);
 }
 //end of josiah's stuff with elijah

@@ -13,7 +13,7 @@ int thread_create(thread_t *thread, void *(*start)(void *), void *arg) {
   
   for (int i = 0; i < NTHREADS; i++) {
   	if (__threads[i] == 0) {
-  	  tid = i + 1;
+  	  tid = i;
   	  __threads[i] = 1;
   	  break;
   	}

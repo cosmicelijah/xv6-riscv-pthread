@@ -2,6 +2,8 @@
 // kernel stacks, page-table pages,
 // and pipe buffers. Allocates whole 4096-byte pages.
 
+// File updated Feb 17 by Elijah using his CoW lab implementation
+
 #include "types.h"
 #include "param.h"
 #include "memlayout.h"
@@ -11,12 +13,12 @@
 
 #define FRINDEX(pa) ((uint64)pa - KERNBASE) / PGSIZE;
 
+static int refs[(PHYSTOP - KERNBASE) / PGSIZE];
+
 void freerange(void *pa_start, void *pa_end);
 
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
-
-static int refs[(PHYSTOP - KERNBASE) / PGSIZE];
 
 struct run {
   struct run *next;

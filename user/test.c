@@ -5,18 +5,11 @@
 
 static int NUM_THREADS = 1;
 
-/*
-struct ret {
-  int retval;
-  char *tid;
-};
-*/
-
-// Do nothing, strictly for testing purposes
 void *start_fn(void *arg) {
   char *tid = *(char **)arg;
 
   printf("Thread %s: Hello from start!\n", tid);
+  // printf("Address of arg: %p\n", arg);
   
   sleep(2);
 
@@ -73,6 +66,7 @@ int main(int argc, char **argv) {
       break;
     }
 	printf("Thread ID for %s given by API: %d\n", tid[i], threads[i]);
+	// printf("Address for arg given to thread: %p\n", &tid[i]);
   }
 
   // --------= Test for thread_join API call =--------

@@ -801,11 +801,12 @@ void pthread_cancel(int tid) {
   printf("\tthread: %d\n", tid);
 }
 
-//pthread stuff made by josiah with elijah:
+// pthread stuff made by josiah with elijah
+// Returns 0 on success
+// Returns -1 on failure
 int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
   int i;
-  struct proc *t;
-  struct proc *r;
+  struct proc *t, *r;
   struct proc *p = myproc();
 
   // Allocate process.
@@ -814,7 +815,7 @@ int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
   }
 
   // Copy user memory from process to thread baby.
-  // Failure result sin panic since no new memory is allocated here
+  // Failure results in panic since no new memory is allocated here
   uvmthreadcopy(p->pagetable, t->pagetable, p->sz);
   t->sz = p->sz;
 
@@ -826,13 +827,22 @@ int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
   	return -1;
   }
 
+  t->thread_stack_addr = t->sz;
+
+  // Map new thread stack to all pagetables for each thread in the process (including main thread)
   for (r = proc; r < &proc[NPROC]; r++) {
     if (r->pid == p->pid) {
-      // Map new stack to all pagetables for each thread in the process (including main thread)
-      //mappages();
+      // Add to end of virtual memory
+      if (mappages(r->pagetable, t->thread_stack_addr, PGSIZE, (uint64)new_stack , PTE_R | PTE_W | PTE_U | PTE_V) == -1) {
+      	kfree(new_stack);
+      	uvmdealloc(r->pagetable, t->thread_stack_addr, r->sz);
+      	freethread(t);
+      	release(&t->lock);
+      	return -1;
+      }
+      r->sz += PGSIZE;
     }
   }
-  
   
   //set the threads pid and tid
   t->pid = p->pid;
@@ -840,11 +850,10 @@ int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
 
   // copy saved user registers and copy epc to start at start function
   *(t->trapframe) = *(p->trapframe);
-  t->trapframe->sp = (uint64)new_stack;
+  t->trapframe->sp = t->thread_stack_addr;
   t->trapframe->epc = (uint64)start;
   t->trapframe->ra = (uint64)exit;
   
-
   // Set args in trapframe to whats given.
   t->trapframe->a0 = (uint64)arg;
 
@@ -866,7 +875,7 @@ int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
   t->state = RUNNABLE;
   release(&t->lock);
 
-  //changes the return address the 
+  // changes the return address to threadret for its first scheduling
   t->context.ra = (uint64)threadret;
 
   // If here, all good, return 0 for success
@@ -878,7 +887,7 @@ int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
 int
 wait_thread(int tid, uint64 addr)
 {
-  struct proc *t;
+  struct proc *t, *r;
   int success;
   struct proc *p = myproc();
 
@@ -901,13 +910,26 @@ wait_thread(int tid, uint64 addr)
 		  success = 0;
           if(t->state == ZOMBIE){
             // Found one.
+            
             if(addr != 0 && copyout(p->pagetable, addr, (char *)&t->xstate,
                                     sizeof(t->xstate)) < 0) {
               release(&t->lock);
               release(&wait_lock);
               return -1;
             }
-            freeproc(t);
+
+            // Free thread's stack from other threads' (including main) pagetables
+            for (r = proc; r < &proc[NPROC]; r++) {
+              // Free stack from every thread except the thread that is exiting,
+              // since that is freed automatically below in freethread
+              if (r->pid == p->pid && r->tid != tid) {
+                // Add to end of virtual memory
+                uvmunmap(r->pagetable, t->thread_stack_addr, 1, 1);
+                r->sz -= PGSIZE;
+              }
+            }
+            
+            freethread(t);
             release(&t->lock);
             release(&wait_lock);
             return tid;
@@ -922,7 +944,7 @@ wait_thread(int tid, uint64 addr)
       release(&wait_lock);
       return -1;
     }
-    
+
     // Wait for a thread to exit.
     sleep(p, &wait_lock);  //DOC: wait-sleep 
   }

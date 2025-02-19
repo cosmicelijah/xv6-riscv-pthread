@@ -97,9 +97,10 @@ struct proc {
 
   //josiahs changes
   // struct proc *main_thread;    // Pointer to main thread if this is a thread
-  struct proc *sibling;        // since its a linked list
-  int is_thread;                //states if this process is a thread 1 if thread 0 if process
+  int is_thread;               //states if this process is a thread 1 if thread 0 if process
   int tid;
+  uint64 thread_stack_addr;	   // Address of the top of the thread's stack (aligned to page)
+  							   // undefined if is_thread = 0
 
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack

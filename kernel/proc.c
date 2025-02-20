@@ -258,21 +258,63 @@ userinit(void)
 
 // Grow or shrink user memory by n bytes.
 // Return 0 on success, -1 on failure.
+// Modified Feb 20 by Elijah to account for dynamic memory allocation in threading
 int
 growproc(int n)
 {
-  uint64 sz;
+  uint64 sz, newsz, oldsz;
   struct proc *p = myproc();
-
+  
   sz = p->sz;
-  if(n > 0){
-    if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
-      return -1;
+  
+  if (n > 0) {
+	// Allocate new page(s) into calling process
+	if ((newsz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
+	  return -1;
+	}
+
+	p->sz = newsz;
+	
+	// Check if newsz even needed a new page
+    oldsz = PGROUNDUP(sz);
+    if (newsz < oldsz) {
+      return 0;
     }
-  } else if(n < 0){
-    sz = uvmdealloc(p->pagetable, sz, sz + n);
+
+	// Map all pages into processes with same pid as p (excluding p itself)
+    struct proc *r;
+	for (r = proc; r < &proc[NPROC]; r++) {
+	  if (r->pid == p->pid && r != p) {
+	    
+	    // Walk through pages added to p and add them to r
+	    for (uint64 i = oldsz; i < newsz; i += PGSIZE) {
+	      uint64 mem = walkaddr(p->pagetable, i);
+	      kaddref((char *)mem);
+	      if (mem == 0) {
+	        panic("growproc: pte should exist");
+	      }
+	      if (mappages(r->pagetable, i, PGSIZE, mem, PTE_W | PTE_R | PTE_U) == -1) {
+	      	panic("growproc: mappages");
+	      }
+	      if (walkaddr(r->pagetable, i) != mem) {
+	      	panic("growproc: wrong page mapped");
+	      }
+	    }
+	    
+	    r->sz = sz + n;
+	  }
+	}
+  } else if (n < 0) {
+    // Shrink all processes with same pid as p (including p itself)
+  	struct proc *r;
+  	for (r = proc; r < &proc[NPROC]; r++) {
+  	  if (r->pid == p->pid) {
+  	  	newsz = uvmdealloc(r->pagetable, sz, sz + n);
+  	  	r->sz = newsz;
+  	  }
+  	}
   }
-  p->sz = sz;
+  
   return 0;
 }
 

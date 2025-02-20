@@ -4,41 +4,6 @@
 #include "user/threads.h"
 #include "user/test.h"
 
-
-
-void *start_fn(void *arg) {
-  int tid = *(int *)arg;
-
-  printf("Thread %d: Hello from start!\n", tid);
-  
-  // sleep(10)
-  
-  int *ret = malloc(sizeof(int));
-
-  // switch (tid[0]) {
-  // 	case 'a':
-  // 	  *ret = 10;
-  // 	  break;
-  // 	case 'b':
-  // 	  *ret = 11;
-  // 	  break;
-  // 	case 'c':
-  // 	  *ret = 12;
-  // 	  break;
-  // 	case 'd':
-  // 	  *ret = -1;
-  // 	  break;
-  // 	default:
-  // 	  *ret = 255;
-  // }
-
-  *ret = 0;
-
-  printf("Thread %d exiting!\n", tid);
-
-  return ret;
-}
-
 // Threading function for Test 1
 void *test_1_thread(void *arg) {
   int tid = *(int *)arg;
@@ -148,7 +113,8 @@ void test_3(void) {
   printf("----------=  Passed Test 3  =----------\n");
 }
 
-char *page = 0;
+char *page1 = 0;
+char *page2 = 0;
 
 // Threading function for Test 4
 void *test_4_thread0(void *arg) {
@@ -156,25 +122,26 @@ void *test_4_thread0(void *arg) {
 
   printf("Hello from thread %d!\n", tid);
 
-  printf("Thread %d: Allocating new page...\n", tid);
+  printf("Thread %d: Allocating new pages...\n", tid);
 
-  // Alloc huge amount of memory to force new pages to be made
-  page = malloc(65536);
+  // Use sbrk to force a new page to be made
+  page1 = sbrk(4096); // One page of memory
 
-  //ignored[0] = 4;
-  
-  //page = malloc(4096);
+  page2 = sbrk(4096); // Another page of memory
 
-  // printf("Thread %d: Address of new page is %p\n", tid, ignored);
-  printf("Thread %d: Address of new page is %p\n", tid, page);
+  char values1[] = {'D', 'E', 'A', 'D'};
+  char values2[] = {'B', 'E', 'E', 'F'};
 
-  char values[] = {'D', 'E', 'A', 'D', 'B', 'E', 'E', 'F'};
-  int len = 8;
+  printf("Thread %d: Putting values in page 1...\n", tid);
 
-  printf("Thread %d: Putting values in new page...\n", tid);
+  for (int i = 0; i < 4; i++) {
+  	page1[i] = values1[i];
+  }
 
-  for (int i = 0; i < len; i++) {
-  	page[i] = values[i];
+  printf("Thread %d: Putting values in page 2...\n", tid);
+
+  for (int i = 0; i < 4; i++) {
+  	page2[i] = values2[i];
   }
 
   printf("Thread %d: Values successfully placed. Now exiting...\n", tid);
@@ -194,18 +161,27 @@ void *test_4_thread1(void *arg) {
 
   printf("Thread %d: waking up and starting to read the page!\n", tid);
 
-  char values[8];
+  char values1[5] = {0};
+  char values2[5] = {0};
 
-  for (int i = 0; i < 8; i++) {
-  	values[i] = page[i];
+  for (int i = 0; i < 4; i++) {
+  	values1[i] = page1[i];
   }
-  // values[len + 1] = 0; // Null terminate for printing
 
-  printf("Thread %d: successfully read the page! The first 8 values are %s!\n", tid, values);
+  printf("Thread %d: successfully read page 1! The first 4 values are %s!\n", tid, values1);
 
-  printf("Thread %d: Freeing page and exiting!\n", tid);
+  for (int i = 0; i < 4; i++) {
+  	values2[i] = page2[i];
+  }
 
-  free(page);
+  printf("Thread %d: successfully read page 2! The first 4 values are %s!\n", tid, values2);
+
+  printf("Thread %d: Freeing both pages!\n", tid);
+
+  // Free both pages at once
+  sbrk(-4096 * 2);
+  
+  printf("Thread %d: exiting!\n", tid);
 
   return 0;
 }
@@ -233,12 +209,12 @@ void test_4(void) {
     printf("Test 4: failed to create thread %d!\n", tids[1]);
     exit(1);
   }
-
  
   for (int i = 0; i < 2; i++) {
     if (thread_join(&threads[i], (void **)(&ignored)) == -1) {
       printf("Test 4: did not join thread %d!\n", tids[i]);
     }
+    printf("Joining thread %d\n", tids[i]);
   }
 
   printf("----------=  Passed Test 4  =----------\n");
@@ -258,7 +234,6 @@ int main(int argc, char **argv) {
   	}
   }
 
-
   void (*tests[])(void) = { test_1, test_2, test_3, test_4 };
 
   if (test_to_run == 0) {
@@ -268,13 +243,6 @@ int main(int argc, char **argv) {
   } else {
   	tests[test_to_run - 1]();
   }
-
-
-  //printf("Pagesize: %d\n", PGSIZE);
-
-  // --------= Initialize necessary thread data =--------
-
-
   
   return 0;
 }

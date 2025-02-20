@@ -167,6 +167,7 @@ panic(char *s)
   printf("%s\n", s);
   panicked = 1; // freeze uart output from other CPUs
   for(;;)
+    asm volatile("wfi");
     ;
 }
 

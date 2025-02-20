@@ -28,61 +28,6 @@ void trapinithart(void)
 }
 
 //
-// Copy-on-Write pagefault landing
-// Checks if a pagefault is real or if it should invoke CoW
-// Returns 0 if CoW, 1 if pagefault, -1 if OoM
-//
-/*
-static int cow(struct proc *p, uint64 va)
-{
-  pte_t *pte;
-  uint64 pa, a;
-  uint flags;
-  char *mem = 0;
-
-  a = PGROUNDDOWN(va);
-
-  // Taken from uvmcopy
-  if ((pte = walk(p->pagetable, a, 0)) == 0)
-    panic("cow: pte should exist");
-  if ((*pte & PTE_V) == 0)
-    panic("cow: page not present");
-
-  // Not writable page -> segfault
-  if ((*pte & PTE_RSW) == 0)
-    return 1;
-
-  pa = PTE2PA(*pte);
-  flags = PTE_FLAGS(*pte);
-
-  // Put write flag back into place since this page belongs only to p now
-  flags = (flags | PTE_W) & ~(PTE_RSW);
-
-  // Check if we have run out of memory
-  if ((mem = kalloc()) == 0)
-  {
-    return -1;
-  }
-
-  // Copy contents of old page to new page
-  memmove(mem, (char *)pa, PGSIZE);
-
-  // Remove old PTE from p and "free" the corresponding PA
-  uvmunmap(p->pagetable, a, 1, 1);
-
-  // Add new PTE to p
-  if (mappages(p->pagetable, a, PGSIZE, (uint64)mem, flags) != 0)
-  {
-    kfree(mem);
-    return -1;
-  }
-
-  // If here, everything has (in theory) gone well, return 0
-  return 0;
-}
-*/
-
-//
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
 //
@@ -119,27 +64,6 @@ void usertrap(void)
 
     syscall();
   }
-  /*
-  else if (r_scause() == 0xf)
-  {
-    int stat = cow(p, r_stval());
-    if (stat == 1)
-    {
-      // Pagefault corresponds to illegal mem access
-      printf("Segmentation fault: Faulty address %lx\n", r_stval());
-      printf("           Process: %s (PID: %d)\n", p->name, p->pid);
-      setkilled(p);
-    }
-    else if (stat == -1)
-    {
-      // Pagefault was for CoW, but we are out of memory
-      printf("cow: Failed to allocate new page: Out of memory\n");
-      setkilled(p);
-    }
-  }
-  
-  // ok otherwise, cow done successfully (at least here)
-  */
   else if ((which_dev = devintr()) != 0)
   {
     // ok

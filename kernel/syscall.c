@@ -91,6 +91,7 @@ extern uint64 sys_fstat(void);
 extern uint64 sys_chdir(void);
 extern uint64 sys_dup(void);
 extern uint64 sys_getpid(void);
+extern uint64 sys_gettid(void);
 extern uint64 sys_sbrk(void);
 extern uint64 sys_sleep(void);
 extern uint64 sys_uptime(void);
@@ -134,6 +135,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_pthread_join]   	sys_pthread_join,
 [SYS_pthread_cancel]	sys_pthread_cancel,
 [SYS_pthread_exit]		sys_pthread_exit,
+[SYS_gettid]  sys_gettid,
 };
 
 void

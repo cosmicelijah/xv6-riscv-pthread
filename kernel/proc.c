@@ -327,10 +327,6 @@ fork(void)
   return pid;
 }
 
-
-
-
-
 // Pass p's abandoned children to init.
 // Caller must hold wait_lock.
 void
@@ -678,7 +674,7 @@ procdump(void)
 {
   static char *states[] = {
   [UNUSED]    "unused",
-  [USED]      "used",
+  [USED]      "used  ",
   [SLEEPING]  "sleep ",
   [RUNNABLE]  "runble",
   [RUNNING]   "run   ",
@@ -804,9 +800,15 @@ void pthread_cancel(int tid) {
 // pthread stuff made by josiah with elijah
 // Returns 0 on success
 // Returns -1 on failure
-int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
+int pthread_create(
+	int tid, 
+	void*(*start)(void*), 
+	void*arg, 
+	void(*exit)(void), 
+	void *thread_stack
+) {
   int i;
-  struct proc *t, *r;
+  struct proc *t;
   struct proc *p = myproc();
 
   // Allocate process.
@@ -819,42 +821,22 @@ int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
   uvmthreadcopy(p->pagetable, t->pagetable, p->sz);
   t->sz = p->sz;
 
-  // Allocate new stack for thread
-  void *new_stack = kalloc();
-  if (new_stack == 0) {
-  	freethread(t);
-  	release(&t->lock);
-  	return -1;
-  }
-
-  t->thread_stack_addr = t->sz;
-
-  // Map new thread stack to all pagetables for each thread in the process (including main thread)
-  for (r = proc; r < &proc[NPROC]; r++) {
-    if (r->pid == p->pid) {
-      // Add to end of virtual memory
-      if (mappages(r->pagetable, t->thread_stack_addr, PGSIZE, (uint64)new_stack , PTE_R | PTE_W | PTE_U | PTE_V) == -1) {
-      	kfree(new_stack);
-      	uvmdealloc(r->pagetable, t->thread_stack_addr, r->sz);
-      	freethread(t);
-      	release(&t->lock);
-      	return -1;
-      }
-      r->sz += PGSIZE;
-    }
-  }
+  // Save thread stack address to thread's metadata
+  t->thread_stack_addr = (uint64)thread_stack;
   
   //set the threads pid and tid
   t->pid = p->pid;
   t->tid = tid;
 
-  // copy saved user registers and copy epc to start at start function
+  // copy saved user registers
   *(t->trapframe) = *(p->trapframe);
-  t->trapframe->sp = t->thread_stack_addr;
+  // change sp to start at given stack address
+  t->trapframe->sp = t->thread_stack_addr + PGSIZE;
+  // change epc to start at given start function
   t->trapframe->epc = (uint64)start;
+  // change ra to make thread return to the given exit function
   t->trapframe->ra = (uint64)exit;
-  
-  // Set args in trapframe to whats given.
+  // Set args in trapframe to given arg.
   t->trapframe->a0 = (uint64)arg;
 
   // increment reference counts on open file descriptors.
@@ -882,12 +864,14 @@ int pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void)) {
   return 0;
 }
 
-// Wait for a child process to exit and return its pid.
+// Wait for a thread to exit.
 // Return -1 if this process has no children.
+// Return 0 if success.
+// Return 1 on error
 int
 wait_thread(int tid, uint64 addr)
 {
-  struct proc *t, *r;
+  struct proc *t;
   int success;
   struct proc *p = myproc();
 
@@ -915,24 +899,13 @@ wait_thread(int tid, uint64 addr)
                                     sizeof(t->xstate)) < 0) {
               release(&t->lock);
               release(&wait_lock);
-              return -1;
-            }
-
-            // Free thread's stack from other threads' (including main) pagetables
-            for (r = proc; r < &proc[NPROC]; r++) {
-              // Free stack from every thread except the thread that is exiting,
-              // since that is freed automatically below in freethread
-              if (r->pid == p->pid && r->tid != tid) {
-                // Add to end of virtual memory
-                uvmunmap(r->pagetable, t->thread_stack_addr, 1, 1);
-                r->sz -= PGSIZE;
-              }
+              return 1;
             }
             
             freethread(t);
             release(&t->lock);
             release(&wait_lock);
-            return tid;
+            return 0;
           }
 		}
       }
@@ -958,52 +931,45 @@ int pthread_join(int tid, void**retval) {
   return 0;
 }
 
-void
-exit_thread(int status)
-{
-  struct proc *p = myproc();
+void pthread_exit(int status) {
+  struct proc *t = myproc();
 
-  if(p == initproc)
+  if(t == initproc)
     panic("init exiting");
 
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
-    if(p->ofile[fd]){
-      struct file *f = p->ofile[fd];
+    if(t->ofile[fd]){
+      struct file *f = t->ofile[fd];
       fileclose(f);
-      p->ofile[fd] = 0;
+      t->ofile[fd] = 0;
     }
   }
 
   begin_op();
-  iput(p->cwd);
+  iput(t->cwd);
   end_op();
-  p->cwd = 0;
+  t->cwd = 0;
 
   acquire(&wait_lock);
 
   // Parent might be sleeping in wait().
   struct proc* pp;
   for (pp = proc; pp < &proc[NPROC]; pp++) {
-  	if (pp->pid == p->pid && pp->tid == 0) break;
+  	if (pp->pid == t->pid && pp->is_thread == 0) break;
   }
   
   wakeup(pp);
   
-  acquire(&p->lock);
+  acquire(&t->lock);
 
-  p->xstate = status;
-  p->state = ZOMBIE;
+  t->xstate = status;
+  t->state = ZOMBIE;
 
   release(&wait_lock);
 
   // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
-}
-
-void pthread_exit(void) {
-  // TODO: Make pthread_exit passthrough status
-  exit_thread(0);
 }
 //end of josiah's stuff with elijah

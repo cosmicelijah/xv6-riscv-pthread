@@ -19,13 +19,14 @@ int mkdir(const char*);
 int chdir(const char*);
 int dup(int);
 int getpid(void);
+int gettid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int pthread_create(int, void*(*)(void*), void*, void(*)(void));
+int pthread_create(int, void*(*)(void*), void*, void(*)(void), void *);
 int pthread_join(int, void**);
 void pthread_cancel(int);
-void pthread_exit(void);
+void pthread_exit(int);
 
 // ulib.c
 int stat(const char*, struct stat*);

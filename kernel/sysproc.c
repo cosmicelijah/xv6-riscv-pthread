@@ -22,6 +22,12 @@ sys_getpid(void)
 }
 
 uint64
+sys_gettid(void)
+{
+  return myproc()->tid;
+}
+
+uint64
 sys_fork(void)
 {
   return fork();
@@ -99,12 +105,15 @@ sys_pthread_create(void)
   uint64 start;
   uint64 arg;
   uint64 exit;
+  uint64 thread_stack;
   
   argint(0, &tid);
   argaddr(1, &start);
   argaddr(2, &arg);
   argaddr(3, &exit);
-  return pthread_create(tid, (void*(*)(void*))start, (void*)arg, (void(*)(void))exit);
+  argaddr(4, &thread_stack);
+  
+  return pthread_create(tid, (void*(*)(void*))start, (void*)arg, (void(*)(void))exit, (void *)thread_stack);
 }
 
 uint64
@@ -132,5 +141,9 @@ sys_pthread_cancel(void)
 void
 sys_pthread_exit(void)
 {
-  pthread_exit();
+  int status;
+
+  argint(0, &status);
+  
+  pthread_exit(status);
 }

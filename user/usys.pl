@@ -33,6 +33,7 @@ entry("mkdir");
 entry("chdir");
 entry("dup");
 entry("getpid");
+entry("gettid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");

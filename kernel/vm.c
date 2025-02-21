@@ -364,16 +364,16 @@ uvmthreadcopy(pagetable_t process, pagetable_t thread, uint64 sz)
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(process, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
+      panic("uvmthreadcopy: pte should exist");
     if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
+      panic("uvmthreadcopy: page not present");
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
 
     kaddref((void *)pa);
 
     if(mappages(thread, i, PGSIZE, pa, flags) != 0){
-      panic("uvmcopy: what the fuck?");
+      panic("uvmthreadcopy: mappages");
     }
   }
   return;

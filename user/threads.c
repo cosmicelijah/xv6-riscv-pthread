@@ -105,7 +105,7 @@ int thread_join(thread_t *thread, void **retval) {
   // Thread is completely gone and ready to be reused
   td->state = UNUSED;
 
-  // Fulfill return value
+  // Fulfill return value promise
   *retval = td->xstate;
 
   // Set tid to -1 to prevent accidentally using wrong tid 

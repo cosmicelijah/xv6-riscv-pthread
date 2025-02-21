@@ -369,7 +369,7 @@ fork(void)
   return pid;
 }
 
-// Pass p's abandoned children to init.
+// Pass p's abandoned children and threads to init.
 // Caller must hold wait_lock.
 void
 reparent(struct proc *p)
@@ -402,6 +402,19 @@ exit(int status)
       fileclose(f);
       p->ofile[fd] = 0;
     }
+  }
+
+  // Free all threads
+  struct proc *t;
+  for (t = proc; t < &proc[NPROC]; t++) {
+    acquire(&t->lock);
+    // Free every proc with the same pid
+    // unless its the proc that called exit
+  	if (t->pid == p->pid && t != p) {
+  	  t->state = ZOMBIE;
+  	  freeproc(t);
+  	}
+    release(&t->lock);
   }
 
   begin_op();
@@ -741,30 +754,6 @@ procdump(void)
 
 extern void threadret(void);
 
-// free a proc structure and the data hanging from it,
-// including user pages.
-// p->lock must be held.
-static void
-freethread(struct proc *p)
-{
-  if(p->trapframe)
-    kfree((void*)p->trapframe);
-  p->trapframe = 0;
-  if(p->pagetable)
-    proc_freepagetable(p->pagetable, p->sz);
-  p->pagetable = 0;
-  p->sz = 0;
-  p->pid = 0;
-  p->parent = 0;
-  p->name[0] = 0;
-  p->chan = 0;
-  p->killed = 0;
-  p->xstate = 0;
-  p->state = UNUSED;
-  p->is_thread = 0;
-  p->tid = 0;
-}
-
 // Look in the process table for an UNUSED proc.
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
@@ -790,7 +779,7 @@ found:
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
-    freethread(p);
+    freeproc(p);
     release(&p->lock);
     return 0;
   }
@@ -798,7 +787,7 @@ found:
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
-    freethread(p);
+    freeproc(p);
     release(&p->lock);
     return 0;
   }
@@ -857,9 +846,6 @@ int pthread_create(
   // Failure results in panic since no new memory is allocated here
   uvmthreadcopy(p->pagetable, t->pagetable, p->sz);
   t->sz = p->sz;
-
-  // Save thread stack address to thread's metadata
-  t->thread_stack_addr = (uint64)thread_stack;
   
   //set the threads pid and tid
   t->pid = p->pid;
@@ -868,7 +854,7 @@ int pthread_create(
   // copy saved user registers
   *(t->trapframe) = *(p->trapframe);
   // change sp to start at given stack address
-  t->trapframe->sp = t->thread_stack_addr + PGSIZE;
+  t->trapframe->sp = (uint64)thread_stack + PGSIZE;
   // change epc to start at given start function
   t->trapframe->epc = (uint64)start;
   // change ra to make thread return to the given exit function
@@ -939,7 +925,7 @@ wait_thread(int tid, uint64 addr)
               return 1;
             }
             
-            freethread(t);
+            freeproc(t);
             release(&t->lock);
             release(&wait_lock);
             return 0;
@@ -1018,11 +1004,7 @@ int pthread_cancel(int tid) {
   for(t = proc; t < &proc[NPROC]; t++){
     acquire(&t->lock);
     if(t->tid == tid && t->is_thread){
-      t->killed = 1;
-      if(t->state == SLEEPING){
-        // Wake process from sleep().
-        t->state = RUNNABLE;
-      }
+      t->state = ZOMBIE;
       release(&t->lock);
       return 0;
     }

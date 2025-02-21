@@ -290,8 +290,10 @@ void *test_6_thread1(void *arg) {
 
 void test_6(void) {
   printf("\n----------= Starting Test 6 =----------\n");
-  printf("Spawn 1 thread with TID 0 which spins forever\n");
-  printf("Parent calls cancel after sleeping for 50\n");
+  printf("Spawns 2 thread with TID 0-1.\n");
+  printf("Thread 0 exits after saying hello.\n");
+  printf("Thread 1 spins forever.\n");
+  printf("Parent calls cancel after sleeping for 20\n");
   printf("---------------------------------------\n");
 
   thread_t thread;
@@ -309,7 +311,7 @@ void test_6(void) {
   	exit(1);
   }
 
-  sleep(10);
+  sleep(20);
 
   if (thread_cancel(&thread)) {
   	printf("Test 6: did not cancel thread\n");
@@ -328,7 +330,35 @@ void test_6(void) {
   printf("----------=  Passed Test 6  =----------\n");
 }
 
-static int NUM_TESTS = 6;
+// Threading function for Test 7
+void *test_7_thread(void *ignored) {
+  printf("Hello from thread!\n");
+
+  sleep(50);
+
+  // Returns a null pointer, NOT the integer 0
+  return 0;
+}
+
+void test_7(void) {
+  printf("\n----------= Starting Test 7 =----------\n");
+  printf("Spawns 16 threads and exits\n");
+  printf("---------------------------------------\n");
+
+  thread_t threads[16];
+
+  for (int i = 0; i < 16; i++) {
+  	thread_create(&threads[i], test_7_thread, 0);
+  }
+
+  sleep(10);
+
+  exit(0);
+  
+  printf("----------=  Passed Test 7  =----------\n");
+}
+
+static int NUM_TESTS = 7;
 
 // 0 means all
 static int test_to_run = 0;
@@ -341,20 +371,22 @@ int main(int argc, char **argv) {
   	}
   }
 
-  void (*tests[])(void) = { test_1, test_2, test_3, test_4, test_5, test_6 };
+  void (*tests[])(void) = { test_1, test_2, test_3, test_4, test_5, test_6, test_7 };
 
   if (test_to_run == 0) {
   	for (int i = 0; i < NUM_TESTS; i++) {
-  	  // if (i == 4) {
-  	  //   // Skip test 5 in series because it takes forever
-  	  //   printf("\n---------=  Skipped Test 5  =----------\n");
-  	  // 	continue;
-  	  // }
+	  if (i == 6) {
+	    // Skip test 7 in series because it tests exiting prematurely
+	    printf("\n---------=  Skipped Test 7  =----------\n");
+	  	continue;
+	  }
   	  tests[i]();
   	}
   } else {
   	tests[test_to_run - 1]();
   }
+
+  // while (1);
 
   return 0;
 }

@@ -75,13 +75,8 @@ void usertrap(void)
     setkilled(p);
   }
 
-  if (killed(p)) {
-    if (p->is_thread) {
-      pthread_exit(-1);
-    } else {
+  if (killed(p)) 
       exit(-1);
-    }
-  }
 
   // give up the CPU if this is a timer interrupt.
   if (which_dev == 2)

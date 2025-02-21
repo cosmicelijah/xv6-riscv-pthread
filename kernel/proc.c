@@ -833,11 +833,6 @@ void threadret(void)
   usertrapret();
 }
 
-void pthread_cancel(int tid) {
-  printf("This call has not been implemented yet!\n");
-  printf("Printed from pthread_join syscall with args:\n");
-  printf("\tthread: %d\n", tid);
-}
 
 // pthread stuff made by josiah with elijah
 // Returns 0 on success
@@ -1015,3 +1010,23 @@ void pthread_exit(int status) {
   panic("zombie exit");
 }
 //end of josiah's stuff with elijah
+
+// Nukes a thread, similar to kill
+int pthread_cancel(int tid) {
+  struct proc *t;
+
+  for(t = proc; t < &proc[NPROC]; t++){
+    acquire(&t->lock);
+    if(t->tid == tid && t->is_thread){
+      t->killed = 1;
+      if(t->state == SLEEPING){
+        // Wake process from sleep().
+        t->state = RUNNABLE;
+      }
+      release(&t->lock);
+      return 0;
+    }
+    release(&t->lock);
+  }
+  return -1;
+}

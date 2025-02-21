@@ -92,11 +92,9 @@ kalloc(void)
   // Freshly allocd frame should only have one reference
   int fr = FRINDEX(r);
   if (fr < 0) {
-    //printf("alloc: %p %p\n", fr, r);
     release(&kmem.lock);
     return 0; // OoM
   }
-  // printf("alloc: %p %p\n", fr, r);
   refs[fr] = 1;
 
   

@@ -128,14 +128,14 @@ sys_pthread_join(void)
   return pthread_join(tid, (void **)retval);
 }
 
-void
+uint64
 sys_pthread_cancel(void)
 {
   int tid;
 
   argint(0, &tid);
 
-  pthread_cancel(tid);
+  return pthread_cancel(tid);
 }
 
 void

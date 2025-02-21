@@ -12,7 +12,7 @@ struct thread_data {
   enum ThreadState state;	// Current state of the thread
 };
 
-#define NTHREADS 8
+#define NTHREADS 16
 
 void thread_exit();
 
@@ -20,6 +20,6 @@ int thread_create(thread_t *thread, void *(*start)(void *), void *arg);
 
 int thread_join(thread_t *thread, void **retval);
 
-void thread_cancel(thread_t *thread);
+int thread_cancel(thread_t *thread);
 
 #endif

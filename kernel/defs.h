@@ -108,11 +108,9 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
-
-// thread.c
 int				pthread_create(int tid, void*(*start)(void*), void*arg, void(*exit)(void), void *thread_stack);
 int				pthread_join(int tid, void**retval);
-void			pthread_cancel(int tid);
+int				pthread_cancel(int tid);
 void			pthread_exit(int status);
 
 

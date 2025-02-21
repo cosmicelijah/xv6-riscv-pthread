@@ -73,34 +73,28 @@ int thread_create(thread_t *thread, void *(*start)(void *), void *arg) {
 
 // Joins a specific thread given by thread_t *thread
 // Return value (where necessary) is stored in void **retval
-// Returns 0 on success and -1 on failure
+// Returns 0 on success and -1 if no threads to join
 int thread_join(thread_t *thread, void **retval) {
   int tid = *(int *)thread;
 
-  // Find thread first and verify its not UNUSED
-  int found = -1;
+  // Find thread data first
   struct thread_data* td;
   for (td = __threads; td < &__threads[NTHREADS]; td++) {
-   	if (td->tid == tid && td->state != UNUSED) {
-   	  found = 0;
+   	if (td->tid == tid) {
    	  break;
    	}
-  }
-
-  if (found) {
-    printf("thread_join: tried to join unallocated thread\n");
-  	return -1;
   }
 
   // Do actual join before freeing the thread slot to avoid race condition
   int success = pthread_join(tid, retval);
   if (success == -1) {
-    printf("thread_wait: no threads to wait for\n");
     return -1;
   } else if (success == 1) {
   	printf("thread_wait: error in joining\n");
   }
 
+  // Indicates logic error somewhere in API, should never print
+  // Keeps going regardless to prevent mem leaks
   if (td->state != ZOMBIE) {
     printf("Joined non zombie thread!\n");
   }
@@ -113,11 +107,50 @@ int thread_join(thread_t *thread, void **retval) {
 
   // Fulfill return value
   *retval = td->xstate;
+
+  // Set tid to -1 to prevent accidentally using wrong tid 
+  // when looking for tid 0
+  td->tid = -1;
   
   return success;
 }
 
-void thread_cancel(thread_t *thread) {
+// Kills a thread
+// Returns 0 if thread was killed
+// Returns -1 if no matching thread was found
+int thread_cancel(thread_t *thread) {
   int tid = *(int *)thread;
-  pthread_cancel(tid);
+
+  struct thread_data* td;
+  for (td = __threads; td < &__threads[NTHREADS]; td++) {
+    if (td->tid == tid) {
+      // ignored return value
+      int *ignored;
+      
+      // Thread is running, kill it then call thread_join to clean it up
+      if (td->state == USED) {
+	    if (pthread_cancel(tid)) 
+	    	return -1;
+	    td->state = ZOMBIE;
+	    if (thread_join(thread, (void **)&ignored)) 
+	    	return -1;
+	    break;
+      }   
+      
+	  // Thread has exited and is a zombie
+	  // Call pthread_join to clean it up
+      else if (td->state == ZOMBIE) {
+      	
+      	if (thread_join(thread, (void **)&ignored)) 
+      		return -1;
+      } 
+      
+      // Thread is unallocated
+      else {
+      	return -1;
+      }
+    }
+  }
+  
+  return 0;
 }

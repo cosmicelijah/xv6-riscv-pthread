@@ -220,8 +220,115 @@ void test_4(void) {
   printf("----------=  Passed Test 4  =----------\n");
 }
 
-// static int NUM_THREADS = 1;
-static int NUM_TESTS = 4;
+volatile int sum = 0;
+
+// Threading function for Test 5
+void *test_5_thread(void *arg) {
+  int amt_to_add = *(int *)arg;
+  
+  for (int i = 0; i < amt_to_add; i++) {
+  	sum++;
+  }
+  
+  return 0;
+}
+
+void test_5(void) {
+  int num_threads = 16;
+
+  printf("\n----------= Starting Test 5 =----------\n");
+  printf("Spawn %d threads to parallel add to a shared sum\n", num_threads);
+  printf("---------------------------------------\n");
+
+  thread_t thread[num_threads];
+  int amount_to_add = 100000000;
+  void *ignored = 0;
+
+  for (int i = 0; i < num_threads; i++) {
+	if (thread_create(&thread[i], test_5_thread, &amount_to_add) == -1) {
+	  printf("Test 5: failed to create thread!\n");
+	  exit(1);
+	}
+  }
+
+  for (int i = 0; i < num_threads; i++) {
+	if (thread_join(&thread[i], &ignored) == -1) {
+	  printf("Test 5: failed to join thread!\n");
+	  exit(1);
+	}
+  }
+
+  printf("\nFinal sum (should be %d): %d\n", num_threads * amount_to_add, sum);
+  
+  printf("----------=  Passed Test 5  =----------\n");
+}
+
+// Threading function for Test 6
+void *test_6_thread(void *arg) {
+  int tid = *(int *)arg;
+
+  printf("Hello from thread %d! Exiting now!\n", tid);
+
+  // Returns a null pointer, NOT the integer 0
+  return 0;
+}
+
+// Threading function for Test 6
+void *test_6_thread1(void *arg) {
+  int tid = *(int *)arg;
+
+  printf("Hello from thread %d! Spinning forever now!\n", tid);
+
+  // Spin forever
+  for(;;);
+ 
+
+  // Returns a null pointer, NOT the integer 0
+  return 0;
+}
+
+
+void test_6(void) {
+  printf("\n----------= Starting Test 6 =----------\n");
+  printf("Spawn 1 thread with TID 0 which spins forever\n");
+  printf("Parent calls cancel after sleeping for 50\n");
+  printf("---------------------------------------\n");
+
+  thread_t thread;
+  thread_t thread1;
+  int tid = 0;
+  int tid1 = 1;
+
+  if (thread_create(&thread, test_6_thread, &tid) == -1) {
+  	printf("Test 6: failed to create thread!\n");
+  	exit(1);
+  }
+
+  if (thread_create(&thread1, test_6_thread1, &tid1) == -1) {
+  	printf("Test 6: failed to create thread1!\n");
+  	exit(1);
+  }
+
+  sleep(10);
+
+  if (thread_cancel(&thread)) {
+  	printf("Test 6: did not cancel thread\n");
+  	exit(1);
+  } else {
+  	printf("Cancelled thread %d\n", tid);
+  }
+
+  if (thread_cancel(&thread1)) {
+  	printf("Test 6: did not cancel thread\n");
+  	exit(1);
+  } else {
+  	printf("Cancelled thread %d\n", tid1);
+  }
+  
+  printf("----------=  Passed Test 6  =----------\n");
+}
+
+static int NUM_TESTS = 6;
 
 // 0 means all
 static int test_to_run = 0;
@@ -234,15 +341,20 @@ int main(int argc, char **argv) {
   	}
   }
 
-  void (*tests[])(void) = { test_1, test_2, test_3, test_4 };
+  void (*tests[])(void) = { test_1, test_2, test_3, test_4, test_5, test_6 };
 
   if (test_to_run == 0) {
   	for (int i = 0; i < NUM_TESTS; i++) {
+  	  // if (i == 4) {
+  	  //   // Skip test 5 in series because it takes forever
+  	  //   printf("\n---------=  Skipped Test 5  =----------\n");
+  	  // 	continue;
+  	  // }
   	  tests[i]();
   	}
   } else {
   	tests[test_to_run - 1]();
   }
-  
+
   return 0;
 }

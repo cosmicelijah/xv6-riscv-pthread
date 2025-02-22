@@ -1,0 +1,102 @@
+---
+title: Project Milestone 3
+Author(s): Josiah McGee, Elijah Watson
+Date: 2/21/202
+---
+
+High level description
+======================
+
+Add a high level description of your project here. Make sure to summarize all
+the features that you have designed.
+
+In this project we used XV6-RISCV to develop an operatings system with processes and threads. 
+Here is a breakdown of our design:
+* Only allow user to use up to 16 threads, which are tracked in the API.
+    - The array of 16 threads is static, so that means that those 16 thread slots are shared 
+      across all processes in xv6. Can be expanded beforehand by modifying the static global 
+      NTHREADS in threads.h
+    - Enforced in a similar fashion to xv6 only allowing up to 64 processes
+* Reference table being a large array which tracks all reference counts for every possible 
+  page in xv6’s memory range
+    - This implementation is identical to the one in the CoW lab.
+* Userspace management of thread memory
+    - Thread stack, return value, and other thread data are all stored in user space rather 
+      than kernel space, since it’s easier and gives you all the permissions you need for free.
+    - The thread’s stack page address is passed into the pthread_create system call.
+    - The thread’s stack pointer is set to that address plus a page size, because the stack 
+      will grow down and the stack address points to the bottom of the page.
+* Every thread function returns to an API defined exit function
+    - This is done by modifying the return address in the thread’s trapframe right after we 
+      “fork” it from the calling process
+    - The address to the API exit function is passed in through the pthread_create system call
+    - The API calls all follow the “thread_action” convention, whereas the system calls follow 
+      the “pthread_action” convention
+    - This is done to provide a distinction between the two so that a user doesn’t accidentally 
+      call the system call, which would not be ideal since the system calls assume a lot of 
+      things that the API handles
+
+
+Thread creation
+================
+
+Our thread_create function works exactly like Linux’s pthread_create in that:
+ * You pass in an empty thread_t pointer
+ * You give it a function pointer to start running at
+ * You give it an argument to give to the start function
+
+
+Memory sharing
+===============
+
+Describe how you have implemented the sharing of the address space in this
+milestone, including answers to any questions in the description above.
+In order to deal with shared memory we did the following:
+* Wrote a custom uvmthreadcopy function
+    - Copies calling process’s pagetable into the newly created thread’s empty pagetable.
+    - Process’s pagetable includes thread’s stack already, since that was alloc’d before 
+      pthread_create was called
+* Wrote a custom kaddref function increments reference count of given physical address page”
+    - On the other hand, kfree decrements reference count and frees the page when it hits 0
+* Modified growproc function
+    - Loops through all procs and searches for all procs with the same pid as the calling proc
+    - Adds/removes the same pages to/from all aforementioned procs
+    - Increments/decrements reference count for all added pages
+
+
+Test cases
+===========
+
+- Describe the test case you used for the creation of the threads.
+
+- Describe the test case you used for testing shared memory between threads.
+
+In order to test our system we did the following:
+    1. First one is creating 8 threads, having them print out "Hello from thread %d", where %d 
+       is an int argument that was passed to the thread. Then joining the 8 threads and 
+       manually checking that each thread printed something and that the argument was correct.
+    2. Creating two threads and having one sbrk 2 new pages, then write DEAD to the first 4 
+        bytes of page 1 and BEEF to the first 4 bytes of page two, then exiting and being 
+        rejoined into the main thread.
+    3. Having the second sleep while the first is creating and writing to the pages, then when 
+       it wakes up, it reads the first 4 bytes from page 1 and the first 4 bytes from page two and prints them out, 
+       then frees both pages and exits and rejoins the main thread.
+
+Additional comments
+==================
+
+Add any addition comments, questions, or design decisions that you are
+considering for the final submission.
+
+Grade
+======
+
+The grade you believe should be assigned to your group, with some argument as
+to why you chose that grade.
+
+We believe that we should be assigned 100%. The reasons being the fact that all Milestones 
+were 100% completed and were done on time. In addition to that we had a good presentation where 
+we were able thoroughly explain our implementation and design.
+In addition, we attempted the optional part as well as implementing extra features like 
+thread_cancel and QoL features like having the API handle allocating and freeing thread stacks 
+and handling thread ids

@@ -1,7 +1,7 @@
 ---
 title: Project Milestone 3
 Author(s): Josiah McGee, Elijah Watson
-Date: 2/21/202
+Date: 2/21/2025
 ---
 
 High level description
@@ -75,18 +75,29 @@ In order to test our system we did the following:
     1. First one is creating 8 threads, having them print out "Hello from thread %d", where %d 
        is an int argument that was passed to the thread. Then joining the 8 threads and 
        manually checking that each thread printed something and that the argument was correct.
-    2. Creating two threads and having one sbrk 2 new pages, then write DEAD to the first 4 
-        bytes of page 1 and BEEF to the first 4 bytes of page two, then exiting and being 
-        rejoined into the main thread.
-    3. Having the second sleep while the first is creating and writing to the pages, then when 
-       it wakes up, it reads the first 4 bytes from page 1 and the first 4 bytes from page two and prints them out, 
-       then frees both pages and exits and rejoins the main thread.
+    2. Creating two threads
+       a. Having the first thread sbrk 2 new pages, then write DEAD to the first 4 
+          bytes of page 1 and BEEF to the first 4 bytes of page two, then exiting and being 
+          rejoined into the main thread.
+
+       b. Having the second sleep while the first is creating and writing to the pages, then when 
+          it wakes up, it reads the first 4 bytes from page 1 and the first 4 bytes from page two and prints them out, 
+          then frees both pages and exits and rejoins the main thread.
 
 Additional comments
 ==================
 
 Add any addition comments, questions, or design decisions that you are
 considering for the final submission.
+
+- We implemented a method for allowing threads to return a pointer to a stored value on the heap to act as a return
+  value for that thread, since the thread's stack is freed after it is joined. This way, we can keep a reference
+  to its return value long after the thread is gone (just make sure to call free on it at some point!).
+
+- We implemented thread_cancel to allow the main process to kill a specified thread.
+
+- We also implemented the ability for the exit system call to clean up any remaining unjoined threads
+  when a process calls exit().
 
 Grade
 ======
